@@ -2,7 +2,11 @@ export type Profile = {
   id: string;
   display_name: string;
   created_at: string;
+  handicap_index: number | null;
+  profile_image_url: string | null;
+  home_club: string | null;
 };
+
 
 export type Course = {
   id: string;
