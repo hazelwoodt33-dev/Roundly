@@ -36,7 +36,7 @@ export default async function EventPage({ params }: EventPageProps) {
     .order("joined_at", { ascending: true });
 
   let playerList = (players ?? []) as EventPlayer[];
-  let currentPlayer = playerList.find((p) => p.user_id === user.id);
+  let currentPlayer = playerList.find((player) => player.user_id === user.id);
 
   if (!currentPlayer) {
     const { error } = await supabase.rpc("join_event", {
@@ -52,12 +52,12 @@ export default async function EventPage({ params }: EventPageProps) {
       .order("joined_at", { ascending: true });
 
     playerList = (refreshedPlayers ?? []) as EventPlayer[];
-    currentPlayer = playerList.find((p) => p.user_id === user.id);
+    currentPlayer = playerList.find((player) => player.user_id === user.id);
 
     if (!currentPlayer) notFound();
   }
 
-  const playerIds = playerList.map((p) => p.id);
+  const playerIds = playerList.map((player) => player.id);
   let scoreList: Score[] = [];
 
   if (playerIds.length > 0) {
@@ -71,7 +71,17 @@ export default async function EventPage({ params }: EventPageProps) {
 
   let courseHoles: CourseHole[] = defaultCourseHoles();
 
-  if (golfEvent.course_id) {
+  if (golfEvent.course_tee_id) {
+    const { data: holes } = await supabase
+      .from("course_holes")
+      .select("*")
+      .eq("course_tee_id", golfEvent.course_tee_id)
+      .order("hole_number", { ascending: true });
+
+    if (holes && holes.length > 0) {
+      courseHoles = holes as CourseHole[];
+    }
+  } else if (golfEvent.course_id) {
     const { data: holes } = await supabase
       .from("course_holes")
       .select("*")

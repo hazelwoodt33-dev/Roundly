@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/header";
 import { createClient } from "@/lib/supabase/client";
-import type { Course } from "@/lib/types";
+import type { Course, CourseTee } from "@/lib/types";
 import { generateInviteCode, getErrorMessage } from "@/lib/utils";
 
 export default function NewEventPage() {
@@ -13,38 +13,47 @@ export default function NewEventPage() {
 
   const [title, setTitle] = useState("");
   const [courseId, setCourseId] = useState("");
+  const [teeId, setTeeId] = useState("");
   const [courses, setCourses] = useState<Course[]>([]);
-  const [scoringFormat, setScoringFormat] = useState<
-    "stableford" | "strokeplay"
-  >("stableford");
-  const [eventDate, setEventDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
+  const [allTees, setAllTees] = useState<CourseTee[]>([]);
+  const [scoringFormat, setScoringFormat] = useState<"stableford" | "strokeplay">("stableford");
+  const [eventDate, setEventDate] = useState(new Date().toISOString().split("T")[0]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [loadingCourses, setLoadingCourses] = useState(true);
+  const [loadingData, setLoadingData] = useState(true);
+
+  const tees = allTees.filter((tee) => tee.course_id === courseId);
 
   useEffect(() => {
-    async function loadCourses() {
-      const { data, error: coursesError } = await supabase
+    async function loadData() {
+      const { data: coursesData, error: coursesError } = await supabase
         .from("courses")
         .select("id, name")
         .order("name");
 
       if (coursesError) {
         setError(coursesError.message);
-      } else {
-        setCourses((data ?? []) as Course[]);
-
-        if (data?.length === 1) {
-          setCourseId(data[0].id);
-        }
+        setLoadingData(false);
+        return;
       }
 
-      setLoadingCourses(false);
+      const { data: teesData, error: teesError } = await supabase
+        .from("course_tees")
+        .select("id, course_id, tee, course_rating, slope_rating")
+        .order("tee");
+
+      if (teesError) {
+        setError(teesError.message);
+        setLoadingData(false);
+        return;
+      }
+
+      setCourses((coursesData ?? []) as Course[]);
+      setAllTees((teesData ?? []) as CourseTee[]);
+      setLoadingData(false);
     }
 
-    loadCourses();
+    loadData();
   }, [supabase]);
 
   async function handleSubmit(e: FormEvent) {
@@ -53,35 +62,25 @@ export default function NewEventPage() {
     setLoading(true);
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const selectedCourse = courses.find((course) => course.id === courseId);
+      const selectedTee = allTees.find((tee) => tee.id === teeId);
 
-      if (!user) throw new Error("You must be signed in");
+      if (!selectedCourse) throw new Error("Please select a course");
+      if (!selectedTee) throw new Error("Please select a tee");
 
-      const selectedCourse = courses.find((c) => c.id === courseId);
-
-      if (!selectedCourse) {
-        throw new Error("Please select a course");
-      }
-
-      const inviteCode = generateInviteCode();
-
-      const { data: eventId, error: createError } = await supabase.rpc(
-        "create_event",
-        {
-          p_title: title.trim(),
-          p_course: selectedCourse.name,
-          p_location: "",
-          p_event_date: eventDate,
-          p_invite_code: inviteCode,
-          p_course_id: courseId,
-          p_scoring_format: scoringFormat,
-        },
-      );
+      const { data: eventId, error: createError } = await supabase.rpc("create_event", {
+        p_title: title.trim(),
+        p_course: selectedCourse.name,
+        p_location: "",
+        p_event_date: eventDate,
+        p_invite_code: generateInviteCode(),
+        p_course_id: courseId,
+        p_course_tee_id: teeId,
+        p_scoring_format: scoringFormat,
+      });
 
       if (createError) throw createError;
-      if (!eventId) throw new Error("Event was not created. Please try again.");
+      if (!eventId) throw new Error("Event was not created");
 
       router.push(`/events/${eventId}`);
       router.refresh();
@@ -98,104 +97,72 @@ export default function NewEventPage() {
 
       <main className="mx-auto max-w-lg px-4 py-6 pb-10">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label
-              htmlFor="title"
-              className="mb-1.5 block text-sm font-semibold text-fairway-800"
-            >
-              Event title
-            </label>
+          <input
+            required
+            className="input-field"
+            placeholder="Event title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
 
-            <input
-              id="title"
-              required
-              className="input-field"
-              placeholder="Saturday Morning Round"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </div>
+          <select
+            required
+            className="input-field"
+            value={courseId}
+            onChange={(e) => {
+              setCourseId(e.target.value);
+              setTeeId("");
+            }}
+          >
+            <option value="">
+              {loadingData ? "Loading courses…" : "Select course"}
+            </option>
 
-          <div>
-            <label
-              htmlFor="course"
-              className="mb-1.5 block text-sm font-semibold text-fairway-800"
-            >
-              Course
-            </label>
+            {courses.map((course) => (
+              <option key={course.id} value={course.id}>
+                {course.name}
+              </option>
+            ))}
+          </select>
 
-            {loadingCourses ? (
-              <p className="text-sm text-fairway-500">Loading courses…</p>
-            ) : courses.length === 0 ? (
-              <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                No courses found. Run the courses migration in Supabase SQL
-                editor.
-              </p>
-            ) : (
-              <select
-                id="course"
-                required
-                className="input-field"
-                value={courseId}
-                onChange={(e) => setCourseId(e.target.value)}
-              >
-                <option value="">Select a course</option>
+          <select
+            required
+            className="input-field"
+            value={teeId}
+            disabled={!courseId || tees.length === 0}
+            onChange={(e) => setTeeId(e.target.value)}
+          >
+            <option value="">
+              {!courseId
+                ? "Select a course first"
+                : tees.length === 0
+                  ? "No tees found for this course"
+                  : "Select tee"}
+            </option>
 
-                {courses.map((course) => (
-                  <option key={course.id} value={course.id}>
-                    {course.name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+            {tees.map((tee) => (
+              <option key={tee.id} value={tee.id}>
+                {tee.tee}
+              </option>
+            ))}
+          </select>
 
-          <div>
-            <label
-              htmlFor="scoringFormat"
-              className="mb-1.5 block text-sm font-semibold text-fairway-800"
-            >
-              Scoring format
-            </label>
+          <select
+            className="input-field"
+            value={scoringFormat}
+            onChange={(e) => setScoringFormat(e.target.value as "stableford" | "strokeplay")}
+          >
+            <option value="stableford">Stableford</option>
+            <option value="strokeplay">Stroke play</option>
+          </select>
 
-            <select
-              id="scoringFormat"
-              required
-              className="input-field"
-              value={scoringFormat}
-              onChange={(e) =>
-                setScoringFormat(
-                  e.target.value as "stableford" | "strokeplay",
-                )
-              }
-            >
-              <option value="stableford">Stableford</option>
-              <option value="strokeplay">Stroke play</option>
-            </select>
-          </div>
-
-          <div>
-            <label
-              htmlFor="eventDate"
-              className="mb-1.5 block text-sm font-semibold text-fairway-800"
-            >
-              Date
-            </label>
-
-            <input
-              id="eventDate"
-              type="date"
-              required
-              className="input-field"
-              value={eventDate}
-              onChange={(e) => setEventDate(e.target.value)}
-            />
-          </div>
-
-          <p className="text-sm text-fairway-500">
-            A 6-character invite code will be generated automatically when you
-            create the event.
-          </p>
+          <input
+            type="date"
+            required
+            className="input-field"
+            value={eventDate}
+            onChange={(e) => setEventDate(e.target.value)}
+          />
 
           {error && (
             <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -205,9 +172,7 @@ export default function NewEventPage() {
 
           <button
             type="submit"
-            disabled={
-              loading || loadingCourses || courses.length === 0 || !courseId
-            }
+            disabled={loading || loadingData || !courseId || !teeId}
             className="btn-primary"
           >
             {loading ? "Creating…" : "Create event"}
