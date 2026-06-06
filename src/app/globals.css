@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@theme {
+  --color-fairway-50: #f3f8f5;
+  --color-fairway-100: #e4efe8;
+  --color-fairway-200: #c9dfd0;
+  --color-fairway-300: #9fc4ad;
+  --color-fairway-400: #6fa385;
+  --color-fairway-500: #4a8566;
+  --color-fairway-600: #376a50;
+  --color-fairway-700: #2d5542;
+  --color-fairway-800: #264536;
+  --color-fairway-900: #1f392e;
+  --color-fairway-950: #0f1f18;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-fairway-50 text-fairway-950 antialiased;
+    font-family: var(--font-sans);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Prevents iOS zoom on input focus */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply flex min-h-[48px] w-full items-center justify-center rounded-2xl bg-fairway-700 px-5 py-3.5 text-base font-semibold text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply flex min-h-[48px] w-full items-center justify-center rounded-2xl border border-fairway-200 bg-white px-5 py-3.5 text-base font-semibold text-fairway-800 transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .input-field {
+    @apply min-h-[48px] w-full rounded-2xl border border-fairway-200 bg-white px-4 py-3.5 text-base text-fairway-950 outline-none transition placeholder:text-fairway-400 focus:border-fairway-500 focus:ring-2 focus:ring-fairway-200;
+  }
+
+  .card {
+    @apply rounded-3xl border border-fairway-100 bg-white p-5 shadow-sm;
+  }
+}
+.score-input::-webkit-outer-spin-button,
+.score-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.score-input {
+  appearance: textfield;
+}
