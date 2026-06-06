@@ -4,7 +4,9 @@ export function defaultCourseHoles(): CourseHole[] {
   return Array.from({ length: 18 }, (_, i) => ({
     id: `default-${i + 1}`,
     course_id: "",
+    course_tee_id: null,
     hole_number: i + 1,
+    yards: null,
     par: 4,
     stroke_index: i + 1,
   }));
